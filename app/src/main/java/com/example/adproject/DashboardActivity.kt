@@ -2,6 +2,7 @@ package com.example.adproject
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.activity.enableEdgeToEdge
@@ -13,11 +14,15 @@ import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import okhttp3.*
+import org.json.JSONObject
+import java.io.IOException
 
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var chartView: LineChart
     private lateinit var last7Days: TextView
+    private var accuracyRates: List<Float> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,18 +59,16 @@ class DashboardActivity : AppCompatActivity() {
             startActivity(Intent(this, HomeActivity::class.java))
         }
 
-        // 图表初始化
         chartView = findViewById(R.id.chartView)
         setupChart()
 
-        // 处理 Last 7 Days ▼ 点击事件
         last7Days = findViewById(R.id.last7Days)
         last7Days.setOnClickListener {
             showDayOptions()
         }
 
-        // 初始显示 7 天
-        updateChartForDays(7)
+        // 发起请求
+        fetchAccuracyRatesFromServer()
     }
 
     private fun setupChart() {
@@ -74,33 +77,22 @@ class DashboardActivity : AppCompatActivity() {
         chartView.xAxis.granularity = 1f
         chartView.axisRight.isEnabled = false
         chartView.axisLeft.axisMinimum = 0f
-        chartView.axisLeft.axisMaximum = 100f
+        chartView.axisLeft.axisMaximum = 100f  // 百分比
     }
 
     private fun updateChartForDays(days: Int) {
-        val entries = when (days) {
-            3 -> listOf(
-                Entry(0f, 60f),
-                Entry(1f, 75f),
-                Entry(2f, 85f)
-            )
-            5 -> listOf(
-                Entry(0f, 65f),
-                Entry(1f, 70f),
-                Entry(2f, 80f),
-                Entry(3f, 85f),
-                Entry(4f, 90f)
-            )
-            7 -> listOf(
-                Entry(0f, 60f),
-                Entry(1f, 70f),
-                Entry(2f, 80f),
-                Entry(3f, 75f),
-                Entry(4f, 90f),
-                Entry(5f, 85f),
-                Entry(6f, 95f)
-            )
-            else -> emptyList()
+        val recentRates = accuracyRates.take(days).reversed()
+
+        Log.d("ChartUpdate", "展示最近 $days 天数据: $recentRates")
+
+        if (recentRates.isEmpty()) {
+            Toast.makeText(this, "暂无图表数据", Toast.LENGTH_SHORT).show()
+            chartView.clear()
+            return
+        }
+
+        val entries = recentRates.mapIndexed { index, value ->
+            Entry(index.toFloat(), value * 100)  // 显示百分比
         }
 
         val dataSet = LineDataSet(entries, "Accuracy").apply {
@@ -108,7 +100,7 @@ class DashboardActivity : AppCompatActivity() {
             valueTextColor = getColor(R.color.black)
             lineWidth = 2f
             circleRadius = 4f
-            setDrawValues(false)
+            setDrawValues(true)
             setDrawCircles(true)
         }
 
@@ -137,6 +129,53 @@ class DashboardActivity : AppCompatActivity() {
             }
         }
         builder.show()
+    }
+
+    private fun fetchAccuracyRatesFromServer() {
+        val client = OkHttpClient()
+        val request = Request.Builder()
+            .url("http://10.0.2.2:8080/student/dashboard")  // ✅ 修改这里，解决 localhost 问题
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@DashboardActivity, "请求失败，使用测试数据", Toast.LENGTH_SHORT).show()
+                    Log.e("Dashboard", "请求失败", e)
+                    accuracyRates = listOf(0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
+                    updateChartForDays(7)
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val jsonString = response.body?.string()
+                Log.d("Dashboard", "响应内容：$jsonString")
+
+                try {
+                    val json = JSONObject(jsonString!!)
+                    val dataObj = json.getJSONObject("data")
+                    val ratesArray = dataObj.getJSONArray("accuracyRates")
+
+                    val result = mutableListOf<Float>()
+                    for (i in 0 until ratesArray.length()) {
+                        result.add(ratesArray.getDouble(i).toFloat())
+                    }
+
+                    runOnUiThread {
+                        accuracyRates = result
+                        Log.d("Dashboard", "解析成功：$accuracyRates")
+                        updateChartForDays(7)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this@DashboardActivity, "解析失败，使用测试数据", Toast.LENGTH_SHORT).show()
+                        Log.e("Dashboard", "解析失败", e)
+                        accuracyRates = listOf(0.6f, 0.7f, 0.3f, 0.9f, 0.5f, 0.8f, 1.0f)
+                        updateChartForDays(7)
+                    }
+                }
+            }
+        })
     }
 
     private fun setSelectedButton(selectedButton: Button) {
