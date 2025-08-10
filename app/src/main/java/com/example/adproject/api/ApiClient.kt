@@ -4,7 +4,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    private const val BASE_URL = "http://10.0.2.2:8080" // 本机访问 Emulator 的地址
+    // 模拟器访问本机服务：10.0.2.2；必须以 "/" 结尾
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     val dashboardApi: DashboardApi by lazy {
         Retrofit.Builder()

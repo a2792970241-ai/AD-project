@@ -26,6 +26,12 @@
         <activity android:name=".DashboardActivity" />
         <activity android:name=".ClassActivity" />
         <activity android:name=".HomeActivity" />
+        <activity android:name=".RecommendedActivity" />
+        <activity android:name=".AnswerHistoryActivity" />
+
+
+
+
     </application>
 
 </manifest>

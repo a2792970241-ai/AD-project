@@ -3,8 +3,9 @@ package com.example.adproject
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -49,6 +50,7 @@ class DashboardActivity : AppCompatActivity() {
         }
         dashboardButton.setOnClickListener {
             setSelectedButton(dashboardButton)
+            // 保持在当前页
         }
         classButton.setOnClickListener {
             setSelectedButton(classButton)
@@ -59,13 +61,22 @@ class DashboardActivity : AppCompatActivity() {
             startActivity(Intent(this, HomeActivity::class.java))
         }
 
+        // ====== 新增：Answer History 跳转（保持你现有功能不变）======
+        findViewById<Button>(R.id.answerHistoryButton).setOnClickListener {
+            startActivity(Intent(this, AnswerHistoryActivity::class.java))
+        }
+        // ====== 已有：Recommended Practice 跳转 ====================
+        findViewById<Button>(R.id.recommendedPracticeButton).setOnClickListener {
+            startActivity(Intent(this, RecommendedActivity::class.java))
+        }
+        // =========================================================
+
+        // 图表初始化
         chartView = findViewById(R.id.chartView)
         setupChart()
 
         last7Days = findViewById(R.id.last7Days)
-        last7Days.setOnClickListener {
-            showDayOptions()
-        }
+        last7Days.setOnClickListener { showDayOptions() }
 
         // 发起请求
         fetchAccuracyRatesFromServer()
@@ -134,7 +145,8 @@ class DashboardActivity : AppCompatActivity() {
     private fun fetchAccuracyRatesFromServer() {
         val client = OkHttpClient()
         val request = Request.Builder()
-            .url("http://10.0.2.2:8080/student/dashboard")  // ✅ 修改这里，解决 localhost 问题
+            // 模拟器访问本机服务必须用 10.0.2.2
+            .url("http://10.0.2.2:8080/student/dashboard")
             .build()
 
         client.newCall(request).enqueue(object : Callback {
@@ -142,6 +154,7 @@ class DashboardActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(this@DashboardActivity, "请求失败，使用测试数据", Toast.LENGTH_SHORT).show()
                     Log.e("Dashboard", "请求失败", e)
+                    // fallback 测试数据（7 天）
                     accuracyRates = listOf(0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
                     updateChartForDays(7)
                 }
