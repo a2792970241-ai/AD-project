@@ -9,19 +9,22 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.adproject.api.ApiClient
 import com.example.adproject.model.AnswerRecord
 import com.google.gson.JsonObject
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import org.json.JSONObject
 import java.io.IOException
 
 class AnswerHistoryActivity : AppCompatActivity() {
@@ -39,7 +42,20 @@ class AnswerHistoryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 开启 edge-to-edge，让我们手动适配状态栏安全区
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         setContentView(R.layout.activity_answer_history)
+
+        // 处理顶部 header 的安全区域（防止打孔/状态栏遮挡）
+        val header = findViewById<View>(R.id.header)
+        val initialTopPadding = header.paddingTop
+        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
+            val topInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, initialTopPadding + topInset, v.paddingRight, v.paddingBottom)
+            insets
+        }
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
 
@@ -71,7 +87,7 @@ class AnswerHistoryActivity : AppCompatActivity() {
 
         val req = Request.Builder()
             .url(HISTORY_ENDPOINT)
-            .put(body)  // 你的后端这里是 PUT
+            .put(body)  // 后端定义为 PUT
             .build()
 
         ok.newCall(req).enqueue(object : okhttp3.Callback {
@@ -96,8 +112,8 @@ class AnswerHistoryActivity : AppCompatActivity() {
                             allRecords += AnswerRecord(qid, correct, title = null, imageBase64 = null)
                         }
                         runOnUiThread {
-                            applyFilter()                  // 先显示占位
-                            fetchTitlesSequentially(0)     // 逐个补题干与图片
+                            applyFilter()                  // 先显示
+                            fetchTitlesSequentially(0)     // 逐个补题干/图片
                         }
                     } catch (ex: Exception) {
                         runOnUiThread {
@@ -110,7 +126,7 @@ class AnswerHistoryActivity : AppCompatActivity() {
         })
     }
 
-    /** 第二步：逐个请求题干 + 图片（同 recommend 的做法） */
+    /** 第二步：逐个请求题干 + 图片 */
     private fun fetchTitlesSequentially(index: Int) {
         if (index >= allRecords.size) {
             loading.visibility = View.GONE
@@ -128,7 +144,6 @@ class AnswerHistoryActivity : AppCompatActivity() {
                             data.has("title")    && !data.get("title").isJsonNull    -> data.get("title").asString
                             else -> "Question #${rec.questionId}"
                         }
-                        // 题图：字段可能叫 image 或 img
                         val img = when {
                             data.has("image") && !data.get("image").isJsonNull -> data.get("image").asString
                             data.has("img")   && !data.get("img").isJsonNull   -> data.get("img").asString

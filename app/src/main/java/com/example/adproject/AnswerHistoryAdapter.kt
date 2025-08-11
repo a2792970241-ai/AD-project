@@ -1,5 +1,6 @@
 package com.example.adproject
 
+import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.view.LayoutInflater
@@ -7,6 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.widget.ImageViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.adproject.model.AnswerRecord
 
@@ -20,7 +23,7 @@ class AnswerHistoryAdapter(
         val icon: ImageView? = v.findViewById(R.id.icon)
         val title: TextView = v.findViewById(R.id.txtTitle)
         val status: TextView = v.findViewById(R.id.txtStatus)
-        val thumb: ImageView = v.findViewById(R.id.thumb)      // 新增
+        val thumb: ImageView = v.findViewById(R.id.thumb)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -31,21 +34,47 @@ class AnswerHistoryAdapter(
 
     override fun onBindViewHolder(h: VH, position: Int) {
         val it = current[position]
+        val ctx = h.itemView.context
 
+        // 标题
         h.title.text = it.title ?: "Question #${it.questionId}"
+
+        // 正误文本 + 颜色（核心修改）
         if (it.isCorrect) {
             h.status.text = "Correct"
-            h.icon?.contentDescription = "Correct"
+            h.status.setTextColor(
+                ContextCompat.getColor(ctx, android.R.color.holo_green_dark)
+            )
+            // 可选：让左侧图标也变绿
+            h.icon?.let {
+                ImageViewCompat.setImageTintList(
+                    it, ColorStateList.valueOf(
+                        ContextCompat.getColor(ctx, android.R.color.holo_green_dark)
+                    )
+                )
+                it.contentDescription = "Correct"
+            }
         } else {
             h.status.text = "Wrong"
-            h.icon?.contentDescription = "Wrong"
+            h.status.setTextColor(
+                ContextCompat.getColor(ctx, android.R.color.holo_red_dark)
+            )
+            // 可选：让左侧图标也变红
+            h.icon?.let {
+                ImageViewCompat.setImageTintList(
+                    it, ColorStateList.valueOf(
+                        ContextCompat.getColor(ctx, android.R.color.holo_red_dark)
+                    )
+                )
+                it.contentDescription = "Wrong"
+            }
         }
 
-        // 缩略图：base64 -> Bitmap
+        // 缩略图：base64 -> Bitmap（保留你的逻辑）
         val b64 = it.imageBase64
         if (!b64.isNullOrBlank()) {
             try {
-                val pure = b64.substringAfter("base64,", b64) // 兼容 data:image/...;base64, 前缀
+                val pure = b64.substringAfter("base64,", b64)
                 val bytes = Base64.decode(pure, Base64.DEFAULT)
                 val bm = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 h.thumb.setImageBitmap(bm)
